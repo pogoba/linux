@@ -2728,6 +2728,7 @@ static int vfio_iommu_type1_check_extension(struct vfio_iommu *iommu,
 	case VFIO_TYPE1_IOMMU:
 	case VFIO_TYPE1v2_IOMMU:
 	case VFIO_UNMAP_ALL:
+	case VFIO_USER_DUMP_FEATURE:
 		return 1;
 	case VFIO_UPDATE_VADDR:
 		/*

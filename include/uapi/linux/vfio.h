@@ -57,6 +57,9 @@
  */
 #define VFIO_UPDATE_VADDR		10
 
+/* Supports VFIO_USER_DUMP */
+#define VFIO_USER_DUMP_FEATURE          11
+
 /*
  * The IOCTL interface is designed for extensibility by embedding the
  * structure length (argsz) and flags into structures passed between
@@ -133,6 +136,80 @@ struct vfio_info_cap_header {
  */
 #define VFIO_SET_IOMMU			_IO(VFIO_TYPE, VFIO_BASE + 2)
 
+/**
+ * VFIO_USER_DUMP - _IOV(VFIO_TYPE, VFIO_BASE + 22, struct vfio_user_dump)
+ *
+ * Foobar
+ * Return: 0 on success, -errno on failure: -enospc = insufficient buffer space (read size_b for space needed)
+ * Availability: Always, but not limited to, when VFIO_USER_DUMP_FEATURE is available.
+ */
+struct vfio_user_dump_entry {
+	__u32 idx;
+	__u32 type;
+#define VFIO_USER_DUMP_TYPE_END 1
+#define VFIO_USER_DUMP_TYPE_CONTAINER 2
+#define VFIO_USER_DUMP_TYPE_GROUP 3
+#define VFIO_USER_DUMP_TYPE_DEVICE 4
+#define VFIO_USER_DUMP_TYPE_IRQ 5
+#define VFIO_USER_DUMP_TYPE_IOEVENTFD 6
+	__u32 parent_idx;
+	union {
+		struct {
+			__s32 fd;
+			__u32 iommu_type;
+			// __u32 api_version; // pre/post migration compat check needed: VFIO_GET_API_VERSION
+		} container;
+		// struct {
+		// 	__u32 extension;
+		// 	__u32 availability;
+		// } extension; // pre/post migration compat check needed: assert VFIO_CHECK_EXTENSION equality on target system
+		struct {
+			__s32 fd;
+		} group;
+		struct {
+			__s32 fd;
+			char *name; // name as listed in the IOMMU group sysfs entry TODO: is var length!
+			// struct vfio_device_info device_info; // pre/post migration compat check needed: VFIO_DEVICE_GET_INFO
+			// struct vfio_region_info region_info; // pre/post migration compat check needed: VFIO_DEVICE_GET_REGION_INFO
+			// struct vfio_irq_info irq_info; // pre/post migration compat check needed: VFIO_DEVICE_GET_IRQ_INFO
+			// struct vfio_pci_dependent_device[]; // pre/post migration compat check needed: VFIO_DEVICE_GET_PCI_HOT_RESET_INFO
+			// Do we also need to consider VFIO_DEVICE_{QUERY_GFX_PLANE, GET_GFX_DMABUF}?
+		} device;
+		struct {
+			__s32 fd;
+			__u32 flags; // VFIO_IRQ_SET_ACTION_{MASK, UNMASK}
+			__u32 index;
+			__u32 value;
+		} irq;
+		struct {
+			__s32 fd;
+			__u32 flags;
+			__u64 offset;
+			__u64 data;
+		} ioeventfd;
+		// IOMMU v1 specific ones:
+		struct {
+			__u8 enabled;
+			// struct vfio_iommu_type1_info iommu_info; // pre/post migration compat check needed: VFIO_IOMMU_GET_INFO
+		} iommu_type1;
+		struct {
+			__u32 flags;
+			__u64 vaddr;
+			__u64 iova;
+			__u64 size;
+		} dma_range;
+	} value;
+};
+
+struct vfio_user_dump {
+	__u32 user_dump_format_version;
+#define USER_DUMP_FORMAT_V1 1
+	__u32 size_b;
+	struct vfio_user_dump_entry entries[];
+};
+
+#define VFIO_USER_DUMP                  _IO(VFIO_TYPE, VFIO_BASE + 22)
+
 /* -------- IOCTLs for GROUP file descriptors (/dev/vfio/$GROUP) -------- */
 
 /**
@@ -187,7 +264,7 @@ struct vfio_group_status {
  * Return a new file descriptor for the device object described by
  * the provided string.  The string should match a device listed in
  * the devices subdirectory of the IOMMU group sysfs entry.  The
- * group containing the device must already be added to this context.
+ * group containing the d
  * Return: new file descriptor on success, -errno on failure.
  * Availability: When attached to container
  */
